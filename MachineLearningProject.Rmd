@@ -1,0 +1,135 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Srini Kenthapadi"
+date: "January 31, 2016"
+output: html_document
+---
+
+## Practical Machine Learning - Course Project
+
+### Summary
+
+This model is built using the classification tree and it predicts the outcome of the 'Classe' variable based on the various accelerometer data.
+
+### Description
+
+The original training data has many variables. However, for this research, only the accelerometer data is used. Among the accerelometer data, there are four variables with no data. There four variables, namely, var_total_accel_belt, var_accel_arm, var_accel_dumbbell and var_accel_forearm are removed from the trainind data. Similarly, these variable are eliminated from the testing data as well. The training data is further split in to training and testing data for building the classification tree. This model is used for predicting the 'Classe' outcome based on the testing data. In addition to this, the cross validation is done by spliting the data in to ten folds and the estimation of model is repeating three time. 
+
+### Pre-Processing of the Data
+
+The training data has 160 varibles. For this research, as mentioned above, only the accelerometer data is used. Following is the code to read the data from the working directory. 
+
+```{r}
+# Load the required packages
+library(rpart)
+library(caret)
+
+# Load the training and testing data
+trainingData = read.csv("pml-training.csv")
+testingData = read.csv("pml-testing.csv")
+
+```
+
+### Distrubution of 'Classe' outcome
+
+Following plot shows the distribution of 'Classe' among the categories of 'A','B','C','D' and 'E'. 
+```{r}
+# Plot the overall Classe variable 
+barplot(table(trainingData$classe), main="Classe Variable", names= c("A", "B", "C", "D", "E"))
+```
+
+
+Find the variables whose name has 'accel' in it. Remove the variables names var_total_accel_belt, var_accel_arm, var_accel_dumbbell and var_accel_forearm. Similarly, remove those columns from the testing data as well.
+
+```{r}
+#select accelerometer data from the training data
+#names(trainingData)
+accelTrainingData = trainingData[,grep("accel", names(trainingData), value=TRUE)]
+
+#Remove the four columns since there are not enough data and since most of the data observation is empty
+columnsToRemove = c("var_total_accel_belt", "var_accel_arm", "var_accel_dumbbell", "var_accel_forearm") 
+accelTrainingData = accelTrainingData[ , -which(names(accelTrainingData) %in% columnsToRemove)]
+accelTrainingData = cbind(accelTrainingData, trainingData[,c("classe")])
+
+# Split the training data in two such that one set is used as the training set and other set is 
+# used as the testing data
+#Rename the column to 'classe'
+colnames(accelTrainingData)[17] <- "classe"
+
+inTrain = createDataPartition(y=accelTrainingData$classe, p=0.8, list = FALSE)
+newTrainingData = accelTrainingData[inTrain,]
+newTestingData = accelTrainingData[-inTrain,]
+
+accelTestingData = testingData[,grep("accel", names(testingData), value=TRUE)]
+accelTestingData = accelTestingData[ , -which(names(accelTestingData) %in% columnsToRemove)]
+
+
+```
+
+
+### Prediction Model
+
+In order to the predict the outcome 'Classe' based on the accelerometer data, a calssification tree is built. Since the tree that is build is too big, it is not shown in this document.
+
+```{r, echo=FALSE, }
+# Use the new training data created from the training data to build prediction tree
+classeTree = rpart(classe ~ ., data = newTrainingData)
+printcp(classeTree)
+
+# Plot the cost complexity parameters
+plotcp(classeTree)
+# Using the plot, it is possible to determinie that the minimum cross validation occurs at 
+# when the tree size is at 14. The dotted line is the upper limit of the standard deviation.
+```
+
+Using the plot, it is possible to determinie that the minimum cross validation occurs at when the tree size is at 14. The dotted line is the upper limit of the standard deviation.
+
+The classification tree built using the training data is shown below:
+
+```{r}
+# plot the visual tree
+plot(classeTree, margin= 0.1)
+text(classeTree, all=TRUE, use.n = TRUE)
+
+predictTestingData = predict(classeTree, newTestingData, type="class")
+
+# Compare the prediction with the actual data
+#table(newTestingData$classe, predictTestingData)
+```
+
+The confision matrix showing the accuracy of the model along with the comparation of actual 'Classe' outcome with the predicted 'Classe' outcome using the model.
+
+```{r}
+# Display the confusion matrix
+confusionMatrix(table(predictTestingData, newTestingData$classe))
+
+# The accuracy of the mode is estimated to be at 52%.
+
+```
+
+
+### Cross Validation
+
+In order to perform cross validation, the classifiction tree model is build by spliting the data in to 10 folds repeating the process of estimating the model three times. The average accuracy is shows below:
+
+```{r}
+controlRef = trainControl(method="repeatedcv", number=10, repeats=3)
+model = train(classe~., data=accelTrainingData, method="rpart", preProcess="scale", trControl=controlRef)
+model
+```
+The variables used in the contruction of the classification tree are:
+Variables actually used in tree construction:
+* accel_arm_x     
+* accel_belt_x
+* accel_belt_y
+* accel_belt_z
+* accel_dumbbell_x 
+* accel_dumbbell_y
+* accel_dumbbell_z
+* accel_forearm_x
+* accel_forearm_z
+
+
+### Conclusion
+
+The classification tree model built using the training data and using only the accelerometer data has an accuracy of 51%. This model is used for predicting the outcome of the tessting data in this project.
